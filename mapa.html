@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa del Mercado · Mercado de Concentración de Fisherton</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --papel:#F2EEE3;--papel-2:#E7E1D2;--superficie:#FAF7EF;
+    --tinta:#181C17;--tinta-suave:#535C51;--linea:#D5CDBB;
+    --pino:#14301E;--pino-2:#234A32;--verde:#2E5B3F;
+    --rojo:#A8352A;--rojo-2:#8C281F;--ocre:#C2922E;
+    --gris-calle:#A39C8C;
+    --sombra:0 1px 2px rgba(24,28,23,.05),0 14px 34px rgba(24,28,23,.09);
+    --radio:6px;
+    --r-citricos:#C57B23;--r-hoja:#4E7A3C;--r-raices:#8A5A30;
+    --r-carozo:#A8413A;--r-tropical:#C99A2E;--r-importados:#5B5277;
+    /* colores por TIPO de puesto (esquema híbrido en reposo) */
+    --c-puestero:#2B5A86;--c-playero:#B23A2F;--c-deposito:#8F8979;--c-quiosco:#2E9E59;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Archivo',-apple-system,sans-serif;background:var(--papel);color:var(--tinta);
+    -webkit-font-smoothing:antialiased;min-height:100vh}
+  .serif{font-family:'Fraunces',Georgia,serif}
+  .mono,.buscador label,.filtros h3,.chip .cant,.leyenda span,.reset,.demo-aviso div,
+  .mapa-head .conteo,.ficha-rubro-badge,.tag,.ficha-vende h4,.btn,.plano-pie,nav a,
+  .mono-label,.volver,.hs-sub{font-family:'IBM Plex Mono',monospace}
+  .mono-label{font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--rojo);font-weight:500}
+
+  /* Header */
+  header{background:rgba(242,238,227,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--linea);
+    padding:14px 28px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:30}
+  .logo{display:flex;align-items:center;gap:13px}
+  .logo-mark{width:44px;height:44px;background:var(--rojo);display:grid;place-items:center;flex-shrink:0;border-radius:3px;position:relative}
+  .logo-mark::after{content:"";position:absolute;top:6px;right:6px;width:6px;height:6px;background:var(--ocre);border-radius:50%}
+  .logo-mark span{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--papel);letter-spacing:-1px}
+  .logo-txt b{display:block;font-family:'Fraunces',serif;font-size:16px;font-weight:600;letter-spacing:-.3px;line-height:1.05}
+  .logo-txt small{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--tinta-suave);letter-spacing:1px;text-transform:uppercase;margin-top:2px}
+  nav{margin-left:auto;display:flex;gap:2px}
+  nav a{font-size:12px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--tinta-suave);padding:9px 14px;border-radius:var(--radio);transition:.15s}
+  nav a:hover{color:var(--tinta)}
+  nav a.activo{background:var(--pino);color:var(--papel)}
+
+  .stage{max-width:1320px;margin:0 auto;padding:22px 28px 44px}
+  .demo-aviso{padding:14px 0 0}
+  .demo-aviso div{background:var(--papel-2);border:1px solid var(--linea);color:var(--tinta-suave);font-size:11px;font-weight:500;letter-spacing:1px;text-transform:uppercase;padding:9px 15px;border-radius:var(--radio);display:inline-block}
+
+  /* ===== TRANSICIÓN AÉREA → INTERIOR ===== */
+  .flash-overlay{position:fixed;inset:0;background:#060e08;opacity:0;pointer-events:none;z-index:99;transition:opacity .22s ease}
+  .flash-overlay.activo{opacity:1}
+
+  .vista-interior{display:none}
+  body.dentro .vista-aerea{display:none}
+  body.dentro .vista-interior{display:block;animation:zoomEntrada .55s cubic-bezier(.22,.68,0,1.2) forwards}
+  @keyframes zoomEntrada{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
+
+  /* Estado "entrando" — la foto aérea hace zoom antes del flash */
+  .aerea-foto{transition:transform .5s cubic-bezier(.4,0,.6,1),box-shadow .5s ease}
+  body.entrando .aerea-foto{transform:scale(1.09) translateY(-10px) !important;box-shadow:0 50px 90px rgba(0,0,0,.65) !important}
+  body.entrando .ov-dim{fill:rgba(6,14,8,.88) !important;transition:fill .4s .1s ease}
+  body.entrando .hs-label{opacity:0;transform:translate(-50%,-50%) scale(.88);transition:opacity .25s,transform .25s}
+  body.entrando .nave-hot{opacity:0;transition:opacity .2s}
+
+  /* Estado "saliendo" — flash al volver a aérea */
+  body.saliendo .vista-interior{animation:zoomSalida .3s ease forwards}
+  @keyframes zoomSalida{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.04)}}
+
+  .aerea-intro{text-align:center;max-width:600px;margin:26px auto 22px}
+  .aerea-intro h1{font-family:'Fraunces',serif;font-size:clamp(28px,4vw,42px);font-weight:500;letter-spacing:-.8px;margin-top:6px}
+  .aerea-intro p{color:var(--tinta-suave);font-size:15.5px;margin-top:10px}
+  .aerea-foto{display:block;width:100%;padding:0;border:1px solid var(--linea);background:#0a120c;cursor:pointer;
+    position:relative;border-radius:14px;overflow:hidden;box-shadow:var(--sombra);transition:transform .2s}
+  .aerea-foto:hover{transform:translateY(-2px)}
+  .aerea-foto img{width:100%;display:block}
+  .aerea-overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .ov-dim{fill:rgba(8,16,10,.52);transition:fill .25s}
+  .aerea-foto:hover .ov-dim{fill:rgba(8,16,10,.32)}
+  .nave-hot{fill:rgba(168,53,42,.10);stroke:var(--ocre);stroke-width:3;vector-effect:non-scaling-stroke;
+    animation:navePulse 2.4s ease-in-out infinite;transition:fill .2s}
+  .aerea-foto:hover .nave-hot{fill:rgba(168,53,42,.24)}
+  @keyframes navePulse{0%,100%{stroke-width:3}50%{stroke-width:5}}
+  .hs-label{position:absolute;left:44%;top:36%;transform:translate(-50%,-50%);background:var(--rojo);color:#fff;
+    padding:11px 18px;border-radius:8px;text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.45);
+    animation:pulso 2.2s ease-in-out infinite;pointer-events:none}
+  .hs-label b{font-family:'Fraunces',serif;font-size:18px;font-weight:600;display:block}
+  .hs-sub{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;opacity:.92;display:block;margin-top:3px}
+  @keyframes pulso{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.045)}}
+  .aerea-pie{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:18px;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--tinta-suave)}
+  .aerea-pie span{display:flex;align-items:center;gap:7px}
+  .aerea-pie i{width:13px;height:13px;border-radius:3px;display:inline-block;border:2px solid var(--ocre);background:rgba(168,53,42,.18)}
+
+  /* ===== VISTA INTERIOR ===== */
+  .interior-bar{display:flex;align-items:center;gap:18px;margin-bottom:18px;flex-wrap:wrap}
+  .volver{display:inline-flex;align-items:center;gap:9px;background:var(--superficie);border:1px solid var(--linea);
+    color:var(--tinta);font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:11px 16px;
+    border-radius:var(--radio);cursor:pointer;transition:.15s}
+  .volver:hover{border-color:#c4bba6;background:var(--papel-2)}
+  .volver svg{width:15px;height:15px}
+  .ib-title h2{font-family:'Fraunces',serif;font-size:22px;font-weight:600;letter-spacing:-.4px;line-height:1}
+  .ib-title .mono-label{font-size:10.5px}
+
+  .wrap{display:grid;grid-template-columns:288px 1fr;gap:22px}
+  .panel{background:var(--superficie);border:1px solid var(--linea);border-radius:10px;box-shadow:var(--sombra)}
+  aside{display:flex;flex-direction:column;gap:18px;align-self:start;position:sticky;top:90px}
+
+  .buscador{padding:16px}
+  .buscador label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--tinta-suave)}
+  .input-wrap{position:relative;margin-top:9px}
+  .input-wrap svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5;width:16px;height:16px}
+  .buscador input{width:100%;padding:12px 12px 12px 40px;border:1px solid var(--linea);border-radius:var(--radio);
+    font-size:14px;font-family:inherit;background:var(--papel);transition:.15s;color:var(--tinta)}
+  .buscador input:focus{outline:none;border-color:var(--verde);background:#fff;box-shadow:0 0 0 3px rgba(46,91,63,.12)}
+
+  .filtros{padding:16px}
+  .filtros h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--tinta-suave);margin-bottom:13px}
+  .chip{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border:1px solid var(--linea);
+    background:var(--papel);border-radius:var(--radio);font-size:13.5px;font-weight:500;font-family:'Archivo',sans-serif;
+    color:var(--tinta);cursor:pointer;margin-bottom:7px;transition:.15s;text-align:left}
+  .chip:hover{border-color:#c4bba6}
+  .chip .dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+  .chip .cant{margin-left:auto;font-size:11.5px;color:var(--tinta-suave);font-weight:500}
+  .chip.activo{border-color:var(--pino);background:var(--pino);color:var(--papel)}
+  .chip.activo .cant{color:rgba(242,238,227,.7)}
+  .reset{font-size:11px;color:var(--rojo);font-weight:600;letter-spacing:.5px;text-transform:uppercase;background:none;border:none;cursor:pointer;padding:6px 0;margin-top:4px}
+  .reset:hover{color:var(--rojo-2)}
+
+  .mapa-head{display:flex;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--linea);flex-wrap:wrap}
+  .mapa-head .conteo{font-size:13px;color:var(--tinta-suave)}
+  .mapa-head .conteo b{color:var(--tinta);font-family:'Fraunces',serif;font-size:16px;font-weight:600}
+  .leyenda{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+  .leyenda span{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--tinta-suave)}
+  .leyenda i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+  /* ===== PLANO SVG ===== */
+  .plano{padding:22px;overflow-x:auto}
+  .nave-interior{min-width:820px;background:#fff;border:2px solid #b6ac90;border-radius:10px;padding:18px;position:relative}
+  .nave-label{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:var(--superficie);padding:0 12px;
+    font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:2px;color:var(--tinta);text-transform:uppercase;white-space:nowrap}
+  .plano-svg{width:100%;height:auto;display:block}
+  .cel{cursor:pointer;transition:filter .12s}
+  .cel rect.base{stroke:rgba(0,0,0,.16);stroke-width:1;transition:fill .15s}
+  .cel-venta rect.base{fill:var(--c-puestero)}
+  .cel-playero rect.base{fill:var(--c-playero)}
+  .cel-deposito rect.base{fill:url(#hatchDep)}
+  .cel-quiosco rect.base{fill:url(#hatchQui)}
+  .cel .u{fill:#fff;opacity:.9;font-family:'IBM Plex Mono',monospace;font-weight:600;pointer-events:none}
+  .cel-deposito .u{opacity:.82}
+  .cel .qlbl{fill:#fff;font-family:'IBM Plex Mono',monospace;font-weight:600;letter-spacing:2px;pointer-events:none}
+  .cel:hover{filter:drop-shadow(0 4px 9px rgba(24,28,23,.4))}
+  .cel:hover rect.base{stroke:var(--tinta);stroke-width:2}
+  .cel.activo rect.base{stroke:var(--tinta);stroke-width:2.6}
+  .cel.match rect.base{stroke:#fff;stroke-width:1.4}
+  .cel.atenuado{opacity:.13;filter:grayscale(.65)}
+  .calle-rect{fill:var(--gris-calle)}
+  .calle-dash{stroke:#fff;stroke-opacity:.5;stroke-width:3;stroke-dasharray:18 16}
+  .calle-dash.der{animation:dashmv 1.1s linear infinite}
+  .calle-dash.izq{animation:dashmvI 1.1s linear infinite}
+  @keyframes dashmv{to{stroke-dashoffset:-34}}
+  @keyframes dashmvI{to{stroke-dashoffset:34}}
+  .calle-lbl{fill:#2c2a23;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;letter-spacing:1px}
+  .corredor-line{stroke:var(--ocre);stroke-width:2.4;stroke-dasharray:2 7;opacity:.32}
+  .entrada-arrow{stroke:var(--ocre);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  .plano-pie{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px;padding-left:4px;font-size:11px;color:var(--tinta-suave);text-transform:uppercase;letter-spacing:.5px}
+  .pie-item{display:flex;align-items:center;gap:7px}
+  .pie-item i{width:16px;height:11px;border-radius:2px;display:inline-block}
+  .pie-puestero{background:var(--c-puestero)}
+  .pie-playero{background:var(--c-playero)}
+  .pie-dep{background:repeating-linear-gradient(45deg,#8F8979 0 4px,#827c6c 4px 8px)}
+  .pie-quiosco{background:var(--c-quiosco)}
+  .pie-calle{background:var(--gris-calle)}
+  .pie-item.ingreso-leg i{width:3px;height:14px;border-radius:0;background:var(--ocre);box-shadow:0 0 0 4px rgba(194,146,46,.18)}
+  .sin-resultados{text-align:center;padding:40px;color:var(--tinta-suave);font-weight:500;display:none}
+
+  /* Toggle mapa / lista */
+  .vista-toggle{display:flex;gap:2px;background:var(--papel-2);border:1px solid var(--linea);border-radius:var(--radio);padding:3px;flex-shrink:0}
+  .vt-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:calc(var(--radio) - 1px);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+    border:none;cursor:pointer;background:transparent;color:var(--tinta-suave);transition:.15s}
+  .vt-btn svg{width:14px;height:14px}
+  .vt-btn.activo{background:#fff;color:var(--tinta);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+  /* Vista lista */
+  .lista-wrap{display:none;overflow-x:auto;border-top:1px solid var(--linea);animation:fadeUp .3s ease}
+  .lista-wrap.visible{display:block}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .lista-table{width:100%;border-collapse:collapse;min-width:620px}
+  .lista-row{border-bottom:1px solid var(--linea);cursor:pointer;transition:background .12s}
+  .lista-row:hover{background:var(--papel)}.lista-row:last-child{border-bottom:none}
+  .lista-row td{padding:13px 18px;vertical-align:middle}
+  .lista-u{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--tinta-suave);white-space:nowrap;width:1px}
+  .lista-u-in{display:flex;align-items:center;gap:9px}
+  .lista-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;display:inline-block}
+  .lista-tipo{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:3px 7px;border-radius:4px;white-space:nowrap}
+  .lista-tipo.venta{background:rgba(43,90,134,.12);color:#2B5A86}
+  .lista-tipo.playero{background:rgba(178,58,47,.12);color:#B23A2F}
+  .lista-nom{font-family:'Fraunces',serif;font-size:16px;font-weight:600;letter-spacing:-.2px;white-space:nowrap}
+  .lista-rub{white-space:nowrap}
+  .lista-rub-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.5px;
+    text-transform:uppercase;padding:4px 10px;border-radius:20px;display:inline-block}
+  .lista-vende{font-size:13.5px;color:var(--tinta-suave);line-height:1.5;max-width:260px}
+  .lista-acc{width:1px;white-space:nowrap}
+  .lista-wa{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;
+    border-radius:50%;background:var(--verde);color:#fff;transition:.15s}
+  .lista-wa:hover{background:var(--pino-2);transform:scale(1.08)}
+  .lista-wa svg{width:18px;height:18px}
+  .lista-empty{text-align:center;padding:40px;color:var(--tinta-suave);
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.5px;text-transform:uppercase}
+
+  /* Drawer */
+  .overlay{position:fixed;inset:0;background:rgba(24,28,23,.44);opacity:0;pointer-events:none;transition:.25s;z-index:40;backdrop-filter:blur(2px)}
+  .overlay.abierto{opacity:1;pointer-events:auto}
+  .ficha{position:fixed;top:0;right:0;height:100%;width:390px;max-width:92vw;background:var(--superficie);z-index:50;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:-10px 0 40px rgba(24,28,23,.18);display:flex;flex-direction:column}
+  .ficha.abierta{transform:translateX(0)}
+  .ficha-top{height:128px;position:relative;display:flex;align-items:flex-end;padding:18px}
+  .ficha-top::after{content:"";position:absolute;inset:0;opacity:.12;background-image:repeating-linear-gradient(45deg,#fff 0 1px,transparent 1px 22px)}
+  .ficha-cerrar{position:absolute;top:15px;right:15px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.92);border:none;cursor:pointer;display:grid;place-items:center;color:var(--tinta);transition:.15s;z-index:2}
+  .ficha-cerrar:hover{background:#fff;transform:scale(1.05)}.ficha-cerrar svg{width:16px;height:16px}
+  .ficha-rubro-badge{position:relative;z-index:2;background:rgba(250,247,239,.94);padding:6px 13px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
+  .ficha-rubro-badge i{width:9px;height:9px;border-radius:2px}
+  .ficha-body{padding:24px;overflow-y:auto;flex:1}
+  .ficha-body h2{font-family:'Fraunces',serif;font-size:26px;font-weight:600;letter-spacing:-.5px;line-height:1.1}
+  .ficha-ubic{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap}
+  .tag{font-size:12px;font-weight:500;background:var(--papel);padding:6px 12px;border-radius:var(--radio);color:var(--tinta);display:inline-flex;align-items:center;gap:7px;border:1px solid var(--linea)}
+  .tag svg{width:14px;height:14px;color:var(--rojo)}
+  .ficha-vende{margin-top:24px}
+  .ficha-vende h4{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--tinta-suave);font-weight:600;margin-bottom:8px}
+  .ficha-vende p{font-size:15px;line-height:1.6;color:var(--tinta)}
+  .ficha-contacto{margin-top:26px;display:flex;flex-direction:column;gap:10px}
+  .btn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:var(--radio);font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;text-decoration:none;transition:.15s;border:1px solid var(--linea);color:var(--tinta)}
+  .btn svg{width:18px;height:18px}.btn:hover{border-color:#c4bba6;background:var(--papel)}
+  .btn.wa{background:var(--verde);border-color:var(--verde);color:var(--papel)}.btn.wa:hover{background:var(--pino-2);border-color:var(--pino-2)}
+  .ficha-nota{font-size:11.5px;color:var(--tinta-suave);margin-top:20px;line-height:1.55;border-top:1px solid var(--linea);padding-top:16px}
+
+  /* Mini-mapa en ficha */
+  .ficha-mapa-wrap{margin-top:22px}
+  .ficha-mapa-label{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--tinta-suave);margin-bottom:9px;display:flex;align-items:center;gap:8px}
+  .ficha-mapa-label::after{content:"";flex:1;height:1px;background:var(--linea)}
+  .ficha-mapa-svg{border:1px solid rgba(24,28,23,.12);border-radius:8px;overflow:hidden;display:block;width:100%}
+  .ficha-mapa-svg svg{display:block;width:100%;height:auto}
+
+  @media(max-width:920px){
+    nav{display:none}
+    .wrap{grid-template-columns:1fr}
+    aside{position:static;order:2}.col-der{order:1}.leyenda{width:100%;margin-left:0}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark"><span>MF</span></div>
+    <div class="logo-txt"><b>Mercado de Fisherton</b><small>Concentración · Rosario · 1965</small></div>
+  </div>
+  <nav>
+    <a href="index.html">Inicio</a>
+    <a href="#">El Mercado</a>
+    <a href="#" class="activo">Mapa</a>
+    <a href="#">Operadores</a>
+    <a href="#">Contacto</a>
+  </nav>
+</header>
+
+<div class="stage">
+  <div class="demo-aviso"><div>Prototipo con datos de ejemplo — los puestos, rubros y contactos reales se cargan en la implementación</div></div>
+
+  <!-- ===== VISTA AÉREA ===== -->
+  <section class="vista-aerea" id="vAerea">
+    <div class="aerea-intro">
+      <span class="mono-label">Mapa del Mercado</span>
+      <h1 class="serif">Tocá la nave principal</h1>
+      <p>Esta es la vista del predio. Tocá la nave principal para entrar al plano y ver todos los puestos por dentro.</p>
+    </div>
+    <button class="aerea-foto" id="btnEntrar" aria-label="Ver el interior de la nave principal">
+      <img src="img/aerea-noche.png" alt="Vista aérea nocturna del Mercado de Concentración Fisherton">
+      <svg class="aerea-overlay" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+        <path class="ov-dim" fill-rule="evenodd" d="M0 0H1920V1080H0Z M590 250 L1010 222 L1205 530 L615 575 Z"/>
+        <polygon class="nave-hot" points="590,250 1010,222 1205,530 615,575"/>
+      </svg>
+      <span class="hs-label"><b>Nave principal</b><span class="hs-sub">Tocá para ver los puestos →</span></span>
+    </button>
+    <div class="aerea-pie">
+      <span><i></i> Zona interactiva · nave principal</span>
+      <span>Los galpones del perímetro son depósitos de los puesteros</span>
+    </div>
+  </section>
+
+  <!-- ===== VISTA INTERIOR ===== -->
+  <section class="vista-interior" id="vInterior">
+    <div class="interior-bar">
+      <button class="volver" id="btnVolver">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Vista aérea
+      </button>
+      <div class="ib-title">
+        <span class="mono-label">Nave principal · Interior</span>
+        <h2 class="serif">Plano de la nave</h2>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <aside>
+        <div class="panel buscador">
+          <label for="q">Buscar puesto</label>
+          <div class="input-wrap">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#181C17" stroke-width="1.8"/><path d="m20 20-3-3" stroke="#181C17" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <input id="q" type="text" placeholder="Ej: Don Vicente, banana...">
+          </div>
+        </div>
+        <div class="panel filtros">
+          <h3>Filtrar por rubro</h3>
+          <div id="chips"></div>
+          <button class="reset" id="reset">Limpiar filtros</button>
+        </div>
+      </aside>
+
+      <div class="col-der">
+        <div class="panel">
+          <div class="mapa-head">
+            <div class="conteo"><b id="visibles">0</b> de <span id="total">0</span> puestos de venta</div>
+            <div class="vista-toggle">
+              <button class="vt-btn activo" id="btnVistaMapa">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Mapa
+              </button>
+              <button class="vt-btn" id="btnVistaLista">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke-linecap="round"/></svg>Lista
+              </button>
+            </div>
+            <div class="leyenda" id="leyenda"></div>
+          </div>
+          <div class="plano">
+            <div class="nave-interior">
+              <span class="nave-label">Nave principal · Interior</span>
+              <div id="nave"></div>
+            </div>
+            <div class="plano-pie">
+              <span class="pie-item"><i class="pie-puestero"></i> Puestero</span>
+              <span class="pie-item"><i class="pie-playero"></i> Playero (productor local)</span>
+              <span class="pie-item"><i class="pie-dep"></i> Depósito / oficina</span>
+              <span class="pie-item"><i class="pie-quiosco"></i> Quiosco</span>
+              <span class="pie-item"><i class="pie-calle"></i> Calle vehicular</span>
+              <span class="pie-item ingreso-leg"><i></i> Ingreso peatonal</span>
+            </div>
+            <div class="sin-resultados" id="sinResultados">No hay puestos que coincidan con tu búsqueda.</div>
+          </div>
+          <div class="lista-wrap" id="listaWrap"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="flash-overlay" id="flashOverlay"></div>
+<div class="overlay" id="overlay"></div>
+<aside class="ficha" id="ficha">
+  <div class="ficha-top" id="fichaTop">
+    <button class="ficha-cerrar" id="cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    <span class="ficha-rubro-badge" id="fichaBadge"></span>
+  </div>
+  <div class="ficha-body">
+    <h2 class="serif" id="fichaNombre"></h2>
+    <div class="ficha-ubic">
+      <span class="tag" id="fichaUnidad"></span>
+      <span class="tag" id="fichaCalle"></span>
+    </div>
+    <div class="ficha-mapa-wrap" id="fichaMapa"></div>
+    <div class="ficha-vende"><h4>Qué comercializa</h4><p id="fichaVende"></p></div>
+    <div class="ficha-contacto" id="fichaContacto"></div>
+    <p class="ficha-nota">Datos de ejemplo para el prototipo. En la versión final, cada operador administra su ficha y contacto.</p>
+  </div>
+</aside>
+
+<script>
+const RUBROS = {
+  citricos:{nombre:'Cítricos',color:'#C57B23'}, hoja:{nombre:'Verdura de hoja',color:'#4E7A3C'},
+  raices:{nombre:'Papa, cebolla y raíces',color:'#8A5A30'}, carozo:{nombre:'Carozo y pepita',color:'#A8413A'},
+  tropical:{nombre:'Banana y tropical',color:'#C99A2E'}, importados:{nombre:'Importados',color:'#5B5277'},
+};
+
+/* ====== ESTRUCTURA REAL DE LA NAVE (relevada del plano) ======
+   4 bandas horizontales separadas por 3 calles vehiculares.
+   · Banda 1 (norte) y 4 (sur) = BORDE: dos hileras (depósitos gris + venta azul),
+     partidas en 4 grupos por 3 ingresos peatonales. Grupos = 11, 8, 7, 11.
+   · Banda 2 (centro): quiosco verde + bloque 7 + playeros (16 col) + bloque 11.
+   · Banda 3 (centro): bloque 3 + bloque 7 + playeros (16 col) + bloque 11.
+   · Playeros (rojo): 16 columnas en 9 grupos [1,2,2,2,2,2,2,2,1], 6 celdas de alto.
+   Totales: 152 venta (azul) · 192 playeros (rojo) · 74 depósitos (gris) · 1 quiosco.
+*/
+
+// ---- métricas del layout (unidades del viewBox SVG) ----
+const WV=46, G=4, HVb=78, HD=50, HVc=64, BANDH=HD+G+HVb; // borde y centro = 132
+const PADX=16, INGRESO=34, AISLE=26, GAPQ=8;
+const PGv=3, PG=3, PGGmin=14;
+const Sp=(BANDH-5*PGv)/6;            // lado del playero (cuadrado, 6 de alto)
+const STREET=54, TOPPAD=18, SIDEPAD=16;
+const PLAYCOLS=[1,2,2,2,2,2,2,2,1];  // 16 columnas de playeros en 9 grupos
+
+const bw = c => c*WV + (c-1)*G;      // ancho de un bloque de c columnas de venta
+const gw = c => c*Sp + (c-1)*PG;     // ancho de un grupo de playeros de c columnas
+function playMinW(){ let s=0; PLAYCOLS.forEach(c=>s+=gw(c)); return s + (PLAYCOLS.length-1)*PGGmin; }
+
+// ---- specs de segmentos por banda ----
+function bordeSegs(){return [
+  {w:PADX},
+  {tipo:'grupo',cols:11,w:bw(11)},
+  {tipo:'ingreso',grow:true,minW:INGRESO},
+  {tipo:'grupo',cols:8,w:bw(8)},
+  {tipo:'ingreso',grow:true,minW:INGRESO},
+  {tipo:'grupo',cols:7,w:bw(7)},
+  {tipo:'ingreso',grow:true,minW:INGRESO},
+  {tipo:'grupo',cols:11,w:bw(11)},
+  {w:PADX},
+];}
+function centro2Segs(){return [
+  {w:PADX},
+  {tipo:'quiosco',w:bw(3)},
+  {w:GAPQ},
+  {tipo:'bloque',cols:7,w:bw(7)},
+  {w:AISLE},
+  {tipo:'playeros',grow:true,minW:playMinW()},
+  {w:AISLE},
+  {tipo:'bloque',cols:11,w:bw(11)},
+  {w:PADX},
+];}
+function centro3Segs(){return [
+  {w:PADX},
+  {tipo:'bloque',cols:3,w:bw(3)},
+  {w:GAPQ},
+  {tipo:'bloque',cols:7,w:bw(7)},
+  {w:AISLE},
+  {tipo:'playeros',grow:true,minW:playMinW()},
+  {w:AISLE},
+  {tipo:'bloque',cols:11,w:bw(11)},
+  {w:PADX},
+];}
+
+function naturalW(segs){ let f=0; segs.forEach(s=> f += s.grow? s.minW : s.w); return f; }
+function resolveSegs(segs, W){
+  let fixed=0, grows=[]; segs.forEach(s=>{ if(s.grow){fixed+=s.minW;grows.push(s);} else fixed+=s.w; });
+  const per = grows.length? Math.max(0, W-fixed)/grows.length : 0;
+  let x=0; segs.forEach(s=>{ s._x=x; s._w = s.grow? s.minW+per : s.w; x+=s._w; });
+}
+
+const BANDAS_SPEC=[
+  {tipo:'borde', depTop:true,  segs:bordeSegs()},   // banda 1
+  {tipo:'centro2',             segs:centro2Segs()}, // banda 2
+  {tipo:'centro3',             segs:centro3Segs()}, // banda 3
+  {tipo:'borde', depTop:false, segs:bordeSegs()},   // banda 4
+];
+const CALLES=[{dir:'der'},{dir:'izq'},{dir:'der'}];
+
+const NAVE_W = Math.max(...BANDAS_SPEC.map(b=>naturalW(b.segs)));
+BANDAS_SPEC.forEach(b=>resolveSegs(b.segs, NAVE_W));
+
+// posiciones verticales de cada banda y de las calles
+const bandY=[]; let _y=TOPPAD;
+BANDAS_SPEC.forEach((b,i)=>{ bandY[i]=_y; _y+=BANDH; if(i<3){ b._streetY=_y; _y+=STREET; } });
+const layout={ W: SIDEPAD*2+NAVE_W, H:_y+TOPPAD, entradas:[] };
+
+/* ====== Datos de ejemplo ====== */
+const POOL = [
+  {n:'Don Vicente',rubro:'citricos',vende:'Naranja, mandarina y limón de Tucumán y Corrientes. Cajón y por bulto.',tel:'3415000101'},
+  {n:'La Tucumana',rubro:'citricos',vende:'Especialistas en cítricos del norte. Pomelo rosado, lima y naranja ombligo.',tel:'3415000102'},
+  {n:'Frutas del Sur',rubro:'carozo',vende:'Durazno, ciruela, damasco y pelón de Mendoza y el Alto Valle.',tel:'3415000103'},
+  {n:'Hnos. Gómez',rubro:'hoja',vende:'Lechuga, acelga, espinaca y rúcula. Verdura de hoja de quintas de la zona.',tel:'3415000104'},
+  {n:'El Bananero',rubro:'tropical',vende:'Banana de Ecuador y del NOA. Maduración propia, todo el año.',tel:'3415000105'},
+  {n:'Quinta La Esperanza',rubro:'hoja',vende:'Producción propia: acelga, radicheta, escarola y cebolla de verdeo.',tel:'3415000106'},
+  {n:'Cítricos Riera',rubro:'citricos',vende:'Limón y naranja para jugo. Grandes volúmenes para industria y comercios.',tel:'3415000107'},
+  {n:'La Manzana Roja',rubro:'carozo',vende:'Manzana, pera y membrillo del Alto Valle. Cajón cerrado.',tel:'3415000108'},
+  {n:'Verduras Paniagua',rubro:'hoja',vende:'Brócoli, coliflor, apio y puerro. Variedad de hoja y de estación.',tel:'3415000201'},
+  {n:'Tropic Fruit',rubro:'tropical',vende:'Ananá, mango, palta y kiwi. Frutas tropicales importadas y nacionales.',tel:'3415000202'},
+  {n:'La Papa de Oro',rubro:'raices',vende:'Papa blanca y negra de Balcarce. Bolsa de 20kg y suelta.',tel:'3415000203'},
+  {n:'Cebollas del Valle',rubro:'raices',vende:'Cebolla valenciana y morada. Ajo y zanahoria por bolsa.',tel:'3415000204'},
+  {n:'Frutería Central',rubro:'carozo',vende:'Uva, frutilla y arándano en temporada. Cereza de Mendoza.',tel:'3415000205'},
+  {n:'Don Pedro',rubro:'citricos',vende:'Mandarina ponkan y clementina. Naranja de mesa y de jugo.',tel:'3415000206'},
+  {n:'Import Frut',rubro:'importados',vende:'Manzana de Chile, uva de Perú y frutos secos importados.',tel:'3415000207'},
+  {n:'Verdulería Norte',rubro:'hoja',vende:'Tomate, morrón, zucchini y berenjena. Verdura de estación.',tel:'3415000208'},
+  {n:'Tubérculos SRL',rubro:'raices',vende:'Batata, mandioca, remolacha y nabo. Raíces y tubérculos por bulto.',tel:'3415000301'},
+  {n:'La Huerta',rubro:'hoja',vende:'Repollo, acelga y espinaca. Verdura fresca de quintas propias.',tel:'3415000302'},
+  {n:'Frutas Premium',rubro:'carozo',vende:'Durazno blanco, nectarina y ciruela. Selección de primera calidad.',tel:'3415000303'},
+  {n:'El Citrus',rubro:'citricos',vende:'Lima, limón y pomelo. Cítricos por cajón para gastronomía.',tel:'3415000304'},
+  {n:'Mundo Banana',rubro:'tropical',vende:'Banana premium y plátano de freír. Distribución mayorista.',tel:'3415000305'},
+  {n:'Global Fruit',rubro:'importados',vende:'Pera asiática, kiwi de Italia y berries importados.',tel:'3415000306'},
+  {n:'Verduras González',rubro:'hoja',vende:'Lechuga mantecosa, criolla y crespa. Acelga y espinaca atada.',tel:'3415000307'},
+  {n:'La Papa Loca',rubro:'raices',vende:'Papa, batata y cebolla. Bolsa, medio bulto y suelto.',tel:'3415000308'},
+  {n:'Frutos del Alto',rubro:'carozo',vende:'Manzana, pera y uva. Fruta de pepita del Alto Valle de Río Negro.',tel:'3415000401'},
+  {n:'Citromax',rubro:'citricos',vende:'Naranja, mandarina y limón. Cítricos por volumen para reventa.',tel:'3415000402'},
+  {n:'Verde y Fresco',rubro:'hoja',vende:'Rúcula, kale, achicoria y radicchio. Hojas verdes de especialidad.',tel:'3415000403'},
+  {n:'Don Aníbal',rubro:'raices',vende:'Zanahoria, remolacha, ajo y cebolla. Raíces por bolsa de 10kg.',tel:'3415000404'},
+  {n:'La Frutería Fina',rubro:'carozo',vende:'Frutilla, arándano, cereza y frambuesa. Berries frescos.',tel:'3415000405'},
+  {n:'Tropicana',rubro:'tropical',vende:'Ananá, mango, papaya y maracuyá. Frutas tropicales selectas.',tel:'3415000406'},
+  {n:'World Import',rubro:'importados',vende:'Uva de Perú, palta de Chile y frutos importados de estación.',tel:'3415000407'},
+  {n:'Verduras El Sol',rubro:'hoja',vende:'Tomate redondo y perita, morrón rojo y verde. Verdura de estación.',tel:'3415000408'},
+];
+const RK=['citricos','hoja','raices','carozo','tropical','importados'];
+const NOM_GEN={citricos:'Cítricos',hoja:'Verduras',raices:'Tubérculos',carozo:'Frutas',tropical:'Tropical',importados:'Importadora'};
+const GEN_VENDE={citricos:'Cítricos de estación: naranja, mandarina y limón por cajón.',hoja:'Verdura de hoja y de estación por bulto.',raices:'Papa, cebolla, zanahoria y raíces por bolsa.',carozo:'Frutas de carozo y pepita de estación.',tropical:'Banana y frutas tropicales por volumen.',importados:'Frutas importadas de estación.'};
+
+const PLAYERO_POOL=[
+  {n:'Quinta El Ceibo',rubro:'hoja',vende:'Verdura de hoja de producción propia: acelga, lechuga y espinaca.'},
+  {n:'Productores de Pérez',rubro:'hoja',vende:'Hortalizas de quinta de Pérez. Cosecha del día.'},
+  {n:'Finca Santa Rita',rubro:'raices',vende:'Zanahoria, remolacha y nabo de producción local.'},
+  {n:'Huerta La Tablada',rubro:'hoja',vende:'Rúcula, radicheta y cebolla de verdeo recién cortadas.'},
+  {n:'Don Cosme',rubro:'carozo',vende:'Frutas de estación de la zona: durazno y ciruela.'},
+  {n:'Quinta Los Aromos',rubro:'hoja',vende:'Verdura de hoja y aromáticas: perejil, albahaca y cilantro.'},
+  {n:'El Quintero',rubro:'raices',vende:'Papa, batata y cebolla de productores de Soldini.'},
+  {n:'Granja San Jorge',rubro:'hoja',vende:'Tomate, morrón y zapallito de quinta propia.'},
+  {n:'Productor Aguirre',rubro:'citricos',vende:'Mandarina y naranja de quintas del cordón rosarino.'},
+  {n:'La Chacra',rubro:'raices',vende:'Choclo, zapallo y calabaza de estación.'},
+  {n:'Quinta El Amanecer',rubro:'hoja',vende:'Lechuga, achicoria y escarola de cosecha diaria.'},
+  {n:'Huerta del Sol',rubro:'carozo',vende:'Frutilla y arándano de productores locales.'},
+  {n:'Familia Ferreyra',rubro:'hoja',vende:'Acelga, espinaca y puerro de quinta familiar.'},
+  {n:'Granja La Esperanza',rubro:'raices',vende:'Cebolla, ajo y zanahoria por bolsa.'},
+];
+const PLAY_RK=['hoja','raices','hoja','carozo','citricos','raices','hoja'];
+
+/* ====== Generación de puestos con geometría ====== */
+const PUESTOS=[];
+let vIdx=0, pIdx=0, dIdx=0;
+function nextVenta(){
+  vIdx++; let base;
+  if(vIdx<=POOL.length) base=POOL[vIdx-1];
+  else { const r=RK[vIdx%RK.length]; base={n:NOM_GEN[r]+' '+vIdx,rubro:r,vende:GEN_VENDE[r],tel:'341500'+String(5000+vIdx)}; }
+  return {tipo:'venta', u:'U'+String(vIdx).padStart(3,'0'), ...base};
+}
+function nextPlayero(){
+  pIdx++; let base;
+  if(pIdx<=PLAYERO_POOL.length) base=PLAYERO_POOL[pIdx-1];
+  else { const r=PLAY_RK[pIdx%PLAY_RK.length]; base={n:'Productor local '+pIdx,rubro:r,vende:GEN_VENDE[r],tel:'341520'+String(1000+pIdx)}; }
+  return {tipo:'playero', u:'P'+String(pIdx).padStart(3,'0'), ...base};
+}
+function nextDep(){ dIdx++; return {tipo:'deposito', u:'D'+String(dIdx).padStart(2,'0'), n:'Depósito'}; }
+
+function addCell(p,x,y,w,h,zona,banda){ Object.assign(p,{x,y,w,h,zona,banda}); PUESTOS.push(p); }
+
+function placeGrupo(seg,by,depTop,bi){
+  const x0=SIDEPAD+seg._x;
+  const yDep = depTop? by : by+HVb+G;
+  const yVen = depTop? by+HD+G : by;
+  for(let c=0;c<seg.cols;c++){
+    const cx=x0+c*(WV+G);
+    addCell(nextVenta(), cx, yVen, WV, HVb, 'Hilera de venta', bi);
+    addCell(nextDep(),   cx, yDep, WV, HD,  'Depósitos / oficinas', bi);
+  }
+}
+function placeBloque(seg,by,bi){
+  const x0=SIDEPAD+seg._x;
+  for(let c=0;c<seg.cols;c++){
+    const cx=x0+c*(WV+G);
+    addCell(nextVenta(), cx, by,         WV, HVc, 'Bloque de venta', bi);
+    addCell(nextVenta(), cx, by+HVc+G,   WV, HVc, 'Bloque de venta', bi);
+  }
+}
+function placeQuiosco(seg,by,bi){
+  const q={tipo:'quiosco', u:'Q01', n:'Quiosco del Mercado'};
+  addCell(q, SIDEPAD+seg._x, by, seg._w, BANDH, 'Quiosco', bi);
+}
+function placePlayeros(seg,by,bi){
+  const x0=SIDEPAD+seg._x;
+  let sumGW=0; PLAYCOLS.forEach(c=>sumGW+=gw(c));
+  const gap=(seg._w - sumGW)/(PLAYCOLS.length-1);
+  let gx=x0;
+  PLAYCOLS.forEach(cols=>{
+    for(let c=0;c<cols;c++){
+      const cx=gx+c*(Sp+PG);
+      for(let r=0;r<6;r++){
+        addCell(nextPlayero(), cx, by+r*(Sp+PGv), Sp, Sp, 'Playa de playeros', bi);
+      }
+    }
+    gx += gw(cols)+gap;
+  });
+}
+
+BANDAS_SPEC.forEach((b,bi)=>{
+  const by=bandY[bi];
+  b.segs.forEach(seg=>{
+    if(seg.tipo==='grupo') placeGrupo(seg,by,b.depTop,bi);
+    else if(seg.tipo==='bloque') placeBloque(seg,by,bi);
+    else if(seg.tipo==='quiosco') placeQuiosco(seg,by,bi);
+    else if(seg.tipo==='playeros') placePlayeros(seg,by,bi);
+    else if(seg.tipo==='ingreso') layout.entradas.push({x:SIDEPAD+seg._x+seg._w/2, banda:bi});
+  });
+});
+const corridorX = layout.entradas.filter(e=>e.banda===0).map(e=>e.x);
+
+const TOTAL_VENTA = PUESTOS.filter(p=>p.tipo==='venta').length;
+const TOTAL_PLAY  = PUESTOS.filter(p=>p.tipo==='playero').length;
+const TOTAL_PUNTOS= TOTAL_VENTA+TOTAL_PLAY;
+
+/* ====== Estado y helpers ====== */
+let filtroRubro=null, textoBusqueda='', puestoActivo=null, vistaActual='mapa';
+const $ = s => document.querySelector(s);
+const rubroColor = r => RUBROS[r].color;
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const TIPO_NOM={venta:'Puestero',playero:'Playero',deposito:'Depósito',quiosco:'Quiosco'};
+
+const IC_PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s7-6.5 7-11a7 7 0 1 0-14 0c0 4.5 7 11 7 11Z" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.3"/></svg>';
+const IC_CALLE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h18M14 8l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const IC_WA='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-.9-.3-1.6-.6-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-2 .9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.1.1.3 0 .5l-.4.5-.3.3c-.1.1-.3.3-.1.5.1.3.6 1.1 1.4 1.8 1 .9 1.8 1.1 2 1.2.2.1.4.1.5-.1l.6-.8c.2-.2.4-.2.6-.1l1.8.9c.2.1.4.2.5.3.1.2.1.7-.1 1.2Z"/></svg>';
+const IC_TEL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-1Z" stroke-linejoin="round"/></svg>';
+
+/* ====== Render del plano SVG ====== */
+function arrowHoriz(x,y,dir){
+  const d = dir==='der'? `M${x-12} ${y} h22 m-6 -5 l6 5 l-6 5` : `M${x+12} ${y} h-22 m6 -5 l-6 5 l6 5`;
+  return `<path d="${d}" fill="none" stroke="#2c2a23" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>`;
+}
+function streetSVG(y,calle,num,W){
+  const x0=SIDEPAD, w=W-SIDEPAD*2, cy=y+STREET/2;
+  let s=`<rect class="calle-rect" x="${x0}" y="${y}" width="${w}" height="${STREET}" rx="4"/>`;
+  s+=`<line class="calle-dash ${calle.dir}" x1="${x0+96}" y1="${cy}" x2="${x0+w-46}" y2="${cy}"/>`;
+  const ax = calle.dir==='der'? x0+w-30 : x0+w-66;
+  s+=arrowHoriz(ax,cy,calle.dir);
+  s+=`<rect x="${x0+10}" y="${cy-10}" width="78" height="20" rx="3" fill="var(--gris-calle)"/>`;
+  s+=`<text class="calle-lbl" x="${x0+16}" y="${cy+4}">CALLE ${num} ${calle.dir==='der'?'→':'←'}</text>`;
+  return s;
+}
+function entradaArrowSVG(e){
+  const by=bandY[e.banda], down=e.banda===0, x=e.x, y0=by+12, y1=by+BANDH-12;
+  const d = down? `M${x} ${y0} V${y1} m-5 -7 l5 7 l5 -7` : `M${x} ${y1} V${y0} m-5 7 l5 -7 l5 7`;
+  return `<path class="entrada-arrow" d="${d}"/>`;
+}
+function cellSVG(p,idx){
+  const r = p.tipo==='playero'?2 : p.tipo==='quiosco'?5 : 3;
+  let inner=`<rect class="base" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="${r}"/>`;
+  if(p.tipo==='venta'||p.tipo==='deposito'){
+    inner+=`<text class="u" x="${p.x+p.w/2}" y="${p.y+p.h/2}" text-anchor="middle" dominant-baseline="central" font-size="${p.tipo==='deposito'?9:10}">${p.u}</text>`;
+  } else if(p.tipo==='quiosco'){
+    inner+=`<text class="qlbl" x="${p.x+p.w/2}" y="${p.y+p.h/2}" text-anchor="middle" dominant-baseline="central" font-size="13">QUIOSCO</text>`;
+  }
+  const titulo = p.tipo==='deposito'?`Depósito ${p.u}` : p.tipo==='quiosco'?'Quiosco del Mercado' : `${p.n} · ${p.u}`;
+  return `<g class="cel cel-${p.tipo}" data-i="${idx}"><title>${esc(titulo)}</title>${inner}</g>`;
+}
+function renderSVG(){
+  const L=layout;
+  let s=`<svg class="plano-svg" viewBox="0 0 ${L.W} ${L.H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Plano de la nave principal del Mercado">`;
+  s+=`<defs>
+    <pattern id="hatchDep" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="7" height="7" fill="#8F8979"/><rect width="3.5" height="7" fill="#7f7a69"/></pattern>
+    <pattern id="hatchQui" width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="11" height="11" fill="#2E9E59"/><rect width="2.4" height="11" fill="#2a8d50"/></pattern>
+  </defs>`;
+  s+=`<rect x="2" y="2" width="${L.W-4}" height="${L.H-4}" rx="12" fill="#fbfaf5" stroke="#c9c0a8" stroke-width="2"/>`;
+  BANDAS_SPEC.forEach((b,i)=>{ if(b._streetY!=null) s+=streetSVG(b._streetY, CALLES[i], i+1, L.W); });
+  corridorX.forEach(cx=> s+=`<line class="corredor-line" x1="${cx}" y1="${TOPPAD+4}" x2="${cx}" y2="${L.H-TOPPAD-4}"/>`);
+  PUESTOS.forEach((p,i)=> s+=cellSVG(p,i));
+  layout.entradas.forEach(e=> s+=entradaArrowSVG(e));
+  s+='</svg>';
+  $('#nave').innerHTML=s;
+  $('#nave').querySelectorAll('.cel').forEach(g=>{ PUESTOS[+g.dataset.i]._el=g; });
+  $('#nave').onclick=e=>{ const g=e.target.closest('.cel'); if(g) abrirFicha(PUESTOS[+g.dataset.i]); };
+}
+
+/* ====== Filtro / búsqueda (coloreo híbrido) ====== */
+function coincide(p){
+  const cr = !filtroRubro || p.rubro===filtroRubro;
+  const ct = !textoBusqueda ||
+    (p.n && p.n.toLowerCase().includes(textoBusqueda)) ||
+    (p.vende && p.vende.toLowerCase().includes(textoBusqueda)) ||
+    (p.rubro && RUBROS[p.rubro].nombre.toLowerCase().includes(textoBusqueda));
+  return cr && ct;
+}
+function aplicarEstado(){
+  const filtrando = !!(filtroRubro||textoBusqueda);
+  let vis=0;
+  PUESTOS.forEach(p=>{
+    const g=p._el; if(!g) return;
+    g.classList.remove('atenuado','match','activo');
+    const rect=g.querySelector('rect.base'); rect.style.fill='';
+    if(p===puestoActivo) g.classList.add('activo');
+    if(filtrando){
+      if(p.tipo==='venta'||p.tipo==='playero'){
+        if(coincide(p)){ g.classList.add('match'); rect.style.fill=rubroColor(p.rubro); vis++; }
+        else g.classList.add('atenuado');
+      } else g.classList.add('atenuado');
+    }
+  });
+  $('#visibles').textContent = filtrando? vis : TOTAL_PUNTOS;
+  $('#total').textContent = TOTAL_PUNTOS;
+  $('#sinResultados').style.display = (filtrando && vis===0)?'block':'none';
+}
+
+function renderLeyenda(){
+  const ley=$('#leyenda'), chips=$('#chips'); ley.innerHTML=''; chips.innerHTML='';
+  Object.entries(RUBROS).forEach(([k,v])=>{
+    const cant=PUESTOS.filter(p=>(p.tipo==='venta'||p.tipo==='playero')&&p.rubro===k).length; if(!cant) return;
+    const b=document.createElement('button'); b.className='chip'; b.dataset.rubro=k;
+    b.innerHTML=`<span class="dot" style="background:${v.color}"></span>${v.nombre}<span class="cant">${cant}</span>`;
+    b.onclick=()=>{ filtroRubro=filtroRubro===k?null:k; sincronizarChips(); aplicarEstado(); if(vistaActual==='lista') renderLista(); };
+    chips.appendChild(b);
+  });
+  [['var(--c-puestero)','Puestero'],['var(--c-playero)','Playero'],['var(--c-deposito)','Depósito'],['var(--c-quiosco)','Quiosco']].forEach(([c,n])=>{
+    const s=document.createElement('span'); s.innerHTML=`<i style="background:${c}"></i>${n}`; ley.appendChild(s);
+  });
+}
+function sincronizarChips(){ document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('activo',c.dataset.rubro===filtroRubro)); }
+
+/* ====== Mini-mapa en la ficha (usa la misma geometría) ====== */
+function generarMiniMapa(activo){
+  const L=layout;
+  let s=`<svg viewBox="0 0 ${L.W} ${L.H}" xmlns="http://www.w3.org/2000/svg">`;
+  s+=`<rect width="${L.W}" height="${L.H}" rx="10" fill="#0c1c10"/>`;
+  BANDAS_SPEC.forEach((b)=>{ if(b._streetY!=null) s+=`<rect x="${SIDEPAD}" y="${b._streetY}" width="${L.W-SIDEPAD*2}" height="${STREET}" rx="3" fill="#16271b"/>`; });
+  PUESTOS.forEach(p=>{
+    if(p===activo) return;
+    const f = p.tipo==='venta'?'#2B5A8655' : p.tipo==='playero'?'#B23A2F55' : p.tipo==='deposito'?'#8F897933' : '#2E9E5944';
+    s+=`<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="1.5" fill="${f}"/>`;
+  });
+  if(activo){
+    const col = activo.tipo==='venta'?'#3E78B0' : activo.tipo==='playero'?'#D24A3D' : activo.tipo==='deposito'?'#b3ad9a' : '#37c06f';
+    s+=`<rect x="${activo.x-3}" y="${activo.y-3}" width="${activo.w+6}" height="${activo.h+6}" rx="3" fill="${col}" opacity=".3"/>`;
+    s+=`<rect x="${activo.x}" y="${activo.y}" width="${activo.w}" height="${activo.h}" rx="1.5" fill="${col}" stroke="#fff" stroke-width="3"/>`;
+  }
+  s+=`<text x="${L.W/2}" y="${L.H-6}" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#ffffff30" letter-spacing="3">NAVE PRINCIPAL</text>`;
+  s+='</svg>'; return s;
+}
+
+/* ====== Ficha lateral ====== */
+function abrirFicha(p){
+  puestoActivo=p;
+  const h4=document.querySelector('.ficha-vende h4');
+  if(p.tipo==='venta'||p.tipo==='playero'){
+    const col=rubroColor(p.rubro);
+    $('#fichaTop').style.background=`linear-gradient(135deg, ${col}, ${col}cc)`;
+    $('#fichaBadge').innerHTML=`<i style="background:${col}"></i>${RUBROS[p.rubro].nombre}`;
+    $('#fichaNombre').textContent=p.n; h4.textContent='Qué comercializa';
+    $('#fichaUnidad').innerHTML=`${IC_PIN} ${p.tipo==='playero'?'Playero':'Unidad'} ${p.u}`;
+    $('#fichaCalle').innerHTML=`${IC_CALLE} Banda ${p.banda+1} · ${p.tipo==='playero'?'productor local':'puestero'}`;
+    $('#fichaVende').textContent=p.vende;
+    const wa=p.tel.replace(/\D/g,'');
+    $('#fichaContacto').innerHTML=`<a class="btn wa" href="https://wa.me/54${wa}" target="_blank" rel="noopener">${IC_WA} Escribir por WhatsApp</a><a class="btn" href="tel:+54${wa}">${IC_TEL} +54 ${p.tel}</a>`;
+  } else if(p.tipo==='deposito'){
+    $('#fichaTop').style.background='linear-gradient(135deg,#8F8979,#74705e)';
+    $('#fichaBadge').innerHTML='<i style="background:#8F8979"></i>Depósito / oficina';
+    $('#fichaNombre').textContent='Unidad de depósito'; h4.textContent='Sobre esta unidad';
+    $('#fichaUnidad').innerHTML=`${IC_PIN} Unidad ${p.u}`;
+    $('#fichaCalle').innerHTML=`${IC_CALLE} Banda ${p.banda+1} · nave`;
+    $('#fichaVende').textContent='Pertenece a un operador del Mercado y funciona como depósito, cámara de frío u oficina (suele tener planta alta). No es un punto de venta al público.';
+    $('#fichaContacto').innerHTML='';
+  } else {
+    $('#fichaTop').style.background='linear-gradient(135deg,#2E9E59,#1f7a44)';
+    $('#fichaBadge').innerHTML='<i style="background:#2E9E59"></i>Quiosco';
+    $('#fichaNombre').textContent='Quiosco del Mercado'; h4.textContent='Qué es';
+    $('#fichaUnidad').innerHTML=`${IC_PIN} ${p.u}`;
+    $('#fichaCalle').innerHTML=`${IC_CALLE} Banda ${p.banda+1} · nave`;
+    $('#fichaVende').textContent='Quiosco / mini-mercado dentro de la nave: bebidas, snacks y artículos varios para operadores y visitantes.';
+    $('#fichaContacto').innerHTML='';
+  }
+  $('#fichaMapa').innerHTML=`<p class="ficha-mapa-label">Ubicación en la nave</p><div class="ficha-mapa-svg">${generarMiniMapa(p)}</div>`;
+  $('#overlay').classList.add('abierto'); $('#ficha').classList.add('abierta'); aplicarEstado();
+}
+function cerrarFicha(){ puestoActivo=null; $('#overlay').classList.remove('abierto'); $('#ficha').classList.remove('abierta'); aplicarEstado(); }
+
+/* ====== Vista lista ====== */
+function renderLista(){
+  const wrap=$('#listaWrap');
+  const visibles=PUESTOS.filter(p=>(p.tipo==='venta'||p.tipo==='playero') && coincide(p));
+  if(!visibles.length){ wrap.innerHTML='<div class="lista-empty">No hay puestos que coincidan.</div>'; return; }
+  let html='<table class="lista-table"><tbody>';
+  visibles.forEach(p=>{
+    const col=rubroColor(p.rubro), wa=p.tel.replace(/\D/g,'');
+    html+=`<tr class="lista-row" data-u="${p.u}">
+      <td class="lista-u"><div class="lista-u-in"><span class="lista-dot" style="background:${col}"></span>${p.u}</div></td>
+      <td><span class="lista-tipo ${p.tipo}">${p.tipo==='playero'?'Playero':'Puestero'}</span></td>
+      <td class="lista-nom">${p.n}</td>
+      <td class="lista-rub"><span class="lista-rub-tag" style="background:${col}22;color:${col}">${RUBROS[p.rubro].nombre}</span></td>
+      <td class="lista-vende">${p.vende}</td>
+      <td class="lista-acc"><a href="https://wa.me/54${wa}" target="_blank" rel="noopener" class="lista-wa">${IC_WA}</a></td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+  wrap.querySelectorAll('.lista-row').forEach(row=>{
+    const p=PUESTOS.find(x=>x.u===row.dataset.u);
+    row.addEventListener('click',()=>abrirFicha(p));
+  });
+  wrap.querySelectorAll('.lista-wa').forEach(btn=>btn.addEventListener('click',e=>e.stopPropagation()));
+}
+function setVista(v){
+  vistaActual=v;
+  const plano=document.querySelector('.plano'), listaWrap=$('#listaWrap');
+  const btnM=$('#btnVistaMapa'), btnL=$('#btnVistaLista');
+  if(v==='lista'){
+    plano.style.display='none'; listaWrap.classList.add('visible');
+    btnM.classList.remove('activo'); btnL.classList.add('activo');
+    renderLista();
+  } else {
+    plano.style.display=''; listaWrap.classList.remove('visible');
+    btnM.classList.add('activo'); btnL.classList.remove('activo');
+    aplicarEstado();
+  }
+}
+
+/* ====== Navegación aérea <-> interior ====== */
+const flash = document.getElementById('flashOverlay');
+function entrar(){
+  document.body.classList.add('entrando');
+  setTimeout(()=>{
+    flash.classList.add('activo');
+    setTimeout(()=>{
+      document.body.classList.remove('entrando');
+      document.body.classList.add('dentro');
+      window.scrollTo({top:0,behavior:'instant'});
+      requestAnimationFrame(()=>{ flash.classList.remove('activo'); });
+    }, 240);
+  }, 440);
+}
+function salir(){
+  document.body.classList.add('saliendo');
+  flash.classList.add('activo');
+  setTimeout(()=>{
+    document.body.classList.remove('dentro','saliendo');
+    cerrarFicha();
+    window.scrollTo({top:0,behavior:'instant'});
+    requestAnimationFrame(()=>{ flash.classList.remove('activo'); });
+  }, 260);
+}
+
+/* ====== Wiring ====== */
+$('#btnEntrar').addEventListener('click', entrar);
+$('#btnVolver').addEventListener('click', salir);
+$('#q').addEventListener('input', e=>{ textoBusqueda=e.target.value.trim().toLowerCase(); aplicarEstado(); if(vistaActual==='lista') renderLista(); });
+$('#reset').addEventListener('click', ()=>{ filtroRubro=null; textoBusqueda=''; $('#q').value=''; sincronizarChips(); aplicarEstado(); if(vistaActual==='lista') renderLista(); });
+$('#cerrar').addEventListener('click', cerrarFicha);
+$('#overlay').addEventListener('click', cerrarFicha);
+$('#btnVistaMapa').addEventListener('click',()=>setVista('mapa'));
+$('#btnVistaLista').addEventListener('click',()=>setVista('lista'));
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if($('#ficha').classList.contains('abierta')) cerrarFicha(); else if(document.body.classList.contains('dentro')) salir(); } });
+
+renderSVG(); renderLeyenda(); aplicarEstado();
+</script>
+</body>
+</html>
